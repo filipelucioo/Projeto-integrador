@@ -6,7 +6,7 @@
     <title>Campeonato Bololô</title>
 </head>
 <body>
-    <?php include './includes/header.php';?>
+    <?php include __DIR__ . '/includes/header.php';?>
     <h1>Seja bem vindo a Copa Bololô</h1> <br> <br>
     <h3>Quem Somos</h3>
     <p>O Campeonato Bololô nasceu da paixão pelo futebol raiz e da resenha de fim de semana. Somos uma liga de futebol amador criada para dar palco aos times montados na rua, no bairro, na faculdade ou no trabalho. Aqui, a sua turma de amigos deixa de jogar apenas partidas avulsas e ganha um campeonato de verdade para disputar.</p> <br> <br>
@@ -62,6 +62,6 @@
 </table>
 
 
-<?php include './includes/footer.php';?>
+<?php include __DIR__ . '/includes/footer.php';?>
 </body>
 </html>

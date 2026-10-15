@@ -1,28 +1,21 @@
-<?php 
-require_once '/./includes/functions.php';
-require_once '/./login/verifica_user.php';
+<?php
+require_once __DIR__ . '/../login/verifica_user.php';
+require_once __DIR__ . '/../includes/functions.php';
 ?>
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ver Times</title>
+    <link rel="stylesheet" href="../style/style.css">
+    <title>Lista de Times</title>
 </head>
 <body>
-    <?php 
-    include '/./includes/header.php';
-    ?>
-    <div style="width: 30%; margin:auto; text-align:center; border:lpx solid black; border-radius:5px;">
-     <h3>Lista completa de alunos:</h3>
-     <?php 
-     listar($conexao);
-     ?>
+    <?php include __DIR__ . '/../includes/header.php'; ?>
 
-    </div>
-    <?php 
-    include '/./includes/footer.php';
-    ?>
+    <h1>Lista completa de times</h1>
+    <?php exibir_tabela_times(listar_times($conexao)); ?>
+
+    <?php include __DIR__ . '/../includes/footer.php'; ?>
 </body>
 </html>
