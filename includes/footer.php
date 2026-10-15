@@ -7,5 +7,6 @@
 </head>
 <body>
     <h3> <strong>Copa Bololô</strong> &copy;</h3>
+    <small>&copy; Direitos: Copa Bololô.</small>
 </body>
 </html>

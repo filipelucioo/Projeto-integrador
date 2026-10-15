@@ -9,7 +9,7 @@ require_once '/./login/verifica_user.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../style/style.css">
-    <title>Document</title>
+    <title>Deletar</title>
 </head>
 <body>
     <?php 
@@ -30,7 +30,7 @@ if($_SERVER['REQUEST_METHOD'] == "POST"){
 ?>
 
 <?php 
-__DIR__.'/../includes/footer.php';
+'/./includes/footer.php';
 ?>
 
 
