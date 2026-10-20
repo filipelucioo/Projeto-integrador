@@ -1,16 +1,19 @@
 <?php
-include __DIR__ . '/../database/conect.php';
+include_once __DIR__ . '/../database/conect.php';
 
-// escapa o texto antes de mostrar na tela
 function h($valor)
 {
-    return htmlspecialchars((string)$valor);
+    return htmlspecialchars((string)$valor, ENT_QUOTES, 'UTF-8');
 }
 
 /* ================= TIMES ================= */
 
 function cadastrar_time($conexao, $nome, $tecnico, $cpf, $nasc, $telefone)
 {
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
     try {
         $sql = "INSERT INTO times (nome, tecnico, cpf_tecnico, data_nascimento, telefone)
                 VALUES (:nome, :tecnico, :cpf, :nasc, :telefone)";
@@ -23,99 +26,126 @@ function cadastrar_time($conexao, $nome, $tecnico, $cpf, $nasc, $telefone)
         $stmt->bindParam(":telefone", $telefone);
         $stmt->execute();
 
-        echo "Time cadastrado com sucesso!";
+        echo "<div class='alert alert-success'>Time '$nome' cadastrado com sucesso!</div>";
     } catch (PDOException $e) {
-        echo "Erro ao cadastrar time: " . h($e->getMessage());
+        echo "<div class='alert alert-danger'>Erro ao cadastrar time: " . h($e->getMessage()) . "</div>";
     }
 }
 
 function deletar_time($conexao, $id)
 {
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
     try {
         $sql = "DELETE FROM times WHERE id = :id";
-
         $stmt = $conexao->prepare($sql);
         $stmt->bindParam(":id", $id);
         $stmt->execute();
 
         if ($stmt->rowCount() > 0) {
-            echo "Time $id deletado.";
+            echo "<div class='alert alert-success'>Time ID #$id deletado com sucesso.</div>";
         } else {
-            echo "Time não encontrado.";
+            echo "<div class='alert alert-danger'>Time ID #$id não encontrado.</div>";
         }
     } catch (PDOException $e) {
-        // erro 23503 = o time ainda tem jogadores
-        if ($e->getCode() == '23503') {
-            echo "Não é possível deletar: o time ainda tem jogadores.";
+        if ($e->getCode() == '23503' || strpos($e->getMessage(), 'foreign key') !== false) {
+            echo "<div class='alert alert-danger'>Não é possível deletar: o time ainda tem jogadores associados.</div>";
         } else {
-            echo "Erro ao deletar time: " . h($e->getMessage());
+            echo "<div class='alert alert-danger'>Erro ao deletar time: " . h($e->getMessage()) . "</div>";
         }
     }
 }
 
 function listar_times($conexao)
 {
-    $sql = "SELECT * FROM times ORDER BY id";
-
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
+    $sql = "SELECT * FROM times ORDER BY id ASC";
     $stmt = $conexao->prepare($sql);
     $stmt->execute();
-
     $times = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($times as $time) {
-        echo "<hr>";
-        echo "ID: " . h($time['id']) . " <br>";
-        echo "Time: " . h($time['nome']) . " <br>";
-        echo "Técnico: " . h($time['tecnico']) . " <br>";
-        echo "CPF do técnico: " . h($time['cpf_tecnico']) . " <br>";
-        echo "Nascimento: " . h($time['data_nascimento']) . " <br>";
-        echo "Telefone: " . h($time['telefone']) . " <br>";
-    }
-}
-
-// mostra um time e os jogadores dele
-function consultar_time($conexao, $id)
-{
-    $sql = "SELECT * FROM times WHERE id = :id";
-
-    $stmt = $conexao->prepare($sql);
-    $stmt->bindParam(":id", $id);
-    $stmt->execute();
-
-    $time = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$time) {
-        echo "Time não encontrado.";
+    if (empty($times)) {
+        echo "<p>Nenhum time cadastrado ainda.</p>";
         return;
     }
 
-    echo "Time: " . h($time['nome']) . " <br>";
-    echo "Técnico: " . h($time['tecnico']) . " <br>";
-    echo "CPF do técnico: " . h($time['cpf_tecnico']) . " <br>";
-    echo "Nascimento: " . h($time['data_nascimento']) . " <br>";
-    echo "Telefone: " . h($time['telefone']) . " <br>";
+    echo "<table class='data-table'>";
+    echo "<thead><tr><th>ID</th><th>Time</th><th>Técnico</th><th>CPF Técnico</th><th>Nascimento</th><th>Telefone</th></tr></thead>";
+    echo "<tbody>";
+    foreach ($times as $time) {
+        echo "<tr>";
+        echo "<td>#" . h($time['id']) . "</td>";
+        echo "<td><strong>" . h($time['nome']) . "</strong></td>";
+        echo "<td>" . h($time['tecnico']) . "</td>";
+        echo "<td>" . h($time['cpf_tecnico']) . "</td>";
+        echo "<td>" . h($time['data_nascimento']) . "</td>";
+        echo "<td>" . h($time['telefone']) . "</td>";
+        echo "</tr>";
+    }
+    echo "</tbody></table>";
+}
 
-    echo "<h4>Jogadores do time:</h4>";
-
-    $sql = "SELECT id, nome, gols FROM jogadores WHERE time_id = :id ORDER BY nome";
-
+function consultar_time($conexao, $id)
+{
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
+    $sql = "SELECT * FROM times WHERE id = :id";
     $stmt = $conexao->prepare($sql);
     $stmt->bindParam(":id", $id);
     $stmt->execute();
+    $time = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    $jogadores = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-    if (!$jogadores) {
-        echo "Nenhum jogador cadastrado nesse time.";
+    if (!$time) {
+        echo "<div class='alert alert-danger'>Time ID #$id não encontrado.</div>";
+        return;
     }
 
-    foreach ($jogadores as $jogador) {
-        echo "ID: " . h($jogador['id']) . " - " . h($jogador['nome']) . " (Gols: " . h($jogador['gols']) . ") <br>";
+    echo "<div class='card'>";
+    echo "<h2>" . h($time['nome']) . "</h2>";
+    echo "<p><strong>Técnico:</strong> " . h($time['tecnico']) . "</p>";
+    echo "<p><strong>CPF Técnico:</strong> " . h($time['cpf_tecnico']) . "</p>";
+    echo "<p><strong>Data Nasc. Técnico:</strong> " . h($time['data_nascimento']) . "</p>";
+    echo "<p><strong>Telefone:</strong> " . h($time['telefone']) . "</p>";
+    echo "<hr style='margin: 1rem 0;'>";
+
+    echo "<h3>Elenco de Jogadores:</h3>";
+    $sql_j = "SELECT id, nome, gols, cpf FROM jogadores WHERE time_id = :id ORDER BY nome ASC";
+    $stmt_j = $conexao->prepare($sql_j);
+    $stmt_j->bindParam(":id", $id);
+    $stmt_j->execute();
+    $jogadores = $stmt_j->fetchAll(PDO::FETCH_ASSOC);
+
+    if (empty($jogadores)) {
+        echo "<p class='text-muted'>Nenhum jogador cadastrado neste time.</p>";
+    } else {
+        echo "<table class='data-table'>";
+        echo "<thead><tr><th>ID</th><th>Nome</th><th>CPF</th><th>Gols</th></tr></thead><tbody>";
+        foreach ($jogadores as $j) {
+            echo "<tr>";
+            echo "<td>#" . h($j['id']) . "</td>";
+            echo "<td>" . h($j['nome']) . "</td>";
+            echo "<td>" . h($j['cpf']) . "</td>";
+            echo "<td><span class='badge badge-goals'>" . h($j['gols']) . " Gols</span></td>";
+            echo "</tr>";
+        }
+        echo "</tbody></table>";
     }
+    echo "</div>";
 }
 
 function atualizar_time($conexao, $id, $nome, $tecnico, $cpf, $nasc, $telefone)
 {
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
     try {
         $sql = "UPDATE times SET nome = :nome, tecnico = :tecnico, cpf_tecnico = :cpf,
                 data_nascimento = :nasc, telefone = :telefone WHERE id = :id";
@@ -130,39 +160,39 @@ function atualizar_time($conexao, $id, $nome, $tecnico, $cpf, $nasc, $telefone)
         $stmt->execute();
 
         if ($stmt->rowCount() > 0) {
-            echo "Time atualizado com sucesso!";
+            echo "<div class='alert alert-success'>Time ID #$id atualizado com sucesso!</div>";
         } else {
-            echo "Time não encontrado.";
+            echo "<div class='alert alert-danger'>Nenhum dado alterado ou Time ID #$id não encontrado.</div>";
         }
     } catch (PDOException $e) {
-        echo "Erro ao atualizar time: " . h($e->getMessage());
+        echo "<div class='alert alert-danger'>Erro ao atualizar time: " . h($e->getMessage()) . "</div>";
     }
 }
 
 /* ================= JOGADORES ================= */
 
-// procura o id do time pelo nome (o formulário pede o nome do time)
 function buscar_id_time($conexao, $nome_time)
 {
-    $sql = "SELECT id FROM times WHERE nome = :nome";
-
+    $sql = "SELECT id FROM times WHERE LOWER(nome) = LOWER(:nome)";
     $stmt = $conexao->prepare($sql);
     $stmt->bindParam(":nome", $nome_time);
     $stmt->execute();
-
-    return $stmt->fetchColumn(); // false se não achar
+    return $stmt->fetchColumn();
 }
 
 function cadastrar_jogador($conexao, $nome_time, $nome, $cpf, $nasc, $telefone, $nome_resp, $tel_resp)
 {
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
     $time_id = buscar_id_time($conexao, $nome_time);
 
     if (!$time_id) {
-        echo "Time não encontrado. Cadastre o time primeiro.";
+        echo "<div class='alert alert-danger'>Time '$nome_time' não foi encontrado. Cadastre o time primeiro.</div>";
         return;
     }
 
-    // responsável é opcional
     if ($nome_resp === '') { $nome_resp = null; }
     if ($tel_resp === '') { $tel_resp = null; }
 
@@ -180,55 +210,77 @@ function cadastrar_jogador($conexao, $nome_time, $nome, $cpf, $nasc, $telefone, 
         $stmt->bindParam(":tel_resp", $tel_resp);
         $stmt->execute();
 
-        echo "Jogador cadastrado com sucesso!";
+        echo "<div class='alert alert-success'>Jogador '$nome' cadastrado com sucesso no time!</div>";
     } catch (PDOException $e) {
-        echo "Erro ao cadastrar jogador: " . h($e->getMessage());
+        echo "<div class='alert alert-danger'>Erro ao cadastrar jogador: " . h($e->getMessage()) . "</div>";
     }
 }
 
 function deletar_jogador($conexao, $id)
 {
-    $sql = "DELETE FROM jogadores WHERE id = :id";
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
+    try {
+        $sql = "DELETE FROM jogadores WHERE id = :id";
+        $stmt = $conexao->prepare($sql);
+        $stmt->bindParam(":id", $id);
+        $stmt->execute();
 
-    $stmt = $conexao->prepare($sql);
-    $stmt->bindParam(":id", $id);
-    $stmt->execute();
-
-    if ($stmt->rowCount() > 0) {
-        echo "Jogador $id deletado.";
-    } else {
-        echo "Jogador não encontrado.";
+        if ($stmt->rowCount() > 0) {
+            echo "<div class='alert alert-success'>Jogador ID #$id deletado com sucesso.</div>";
+        } else {
+            echo "<div class='alert alert-danger'>Jogador ID #$id não encontrado.</div>";
+        }
+    } catch (PDOException $e) {
+        echo "<div class='alert alert-danger'>Erro ao deletar jogador: " . h($e->getMessage()) . "</div>";
     }
 }
 
 function listar_jogadores($conexao)
 {
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
     $sql = "SELECT j.*, t.nome AS time_nome
             FROM jogadores j
             JOIN times t ON t.id = j.time_id
-            ORDER BY j.id";
+            ORDER BY j.id ASC";
 
     $stmt = $conexao->prepare($sql);
     $stmt->execute();
-
     $jogadores = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    foreach ($jogadores as $jogador) {
-        echo "<hr>";
-        echo "ID: " . h($jogador['id']) . " <br>";
-        echo "Time: " . h($jogador['time_nome']) . " <br>";
-        echo "Jogador: " . h($jogador['nome']) . " <br>";
-        echo "CPF: " . h($jogador['cpf']) . " <br>";
-        echo "Nascimento: " . h($jogador['data_nascimento']) . " <br>";
-        echo "Telefone: " . h($jogador['telefone']) . " <br>";
-        echo "Responsável: " . h($jogador['nome_responsavel']) . " <br>";
-        echo "Telefone do responsável: " . h($jogador['telefone_responsavel']) . " <br>";
-        echo "Gols: " . h($jogador['gols']) . " <br>";
+    if (empty($jogadores)) {
+        echo "<p>Nenhum jogador cadastrado ainda.</p>";
+        return;
     }
+
+    echo "<table class='data-table'>";
+    echo "<thead><tr><th>ID</th><th>Jogador</th><th>Time</th><th>CPF</th><th>Nascimento</th><th>Telefone</th><th>Gols</th></tr></thead>";
+    echo "<tbody>";
+    foreach ($jogadores as $jogador) {
+        echo "<tr>";
+        echo "<td>#" . h($jogador['id']) . "</td>";
+        echo "<td><strong>" . h($jogador['nome']) . "</strong></td>";
+        echo "<td><span class='badge badge-team'>" . h($jogador['time_nome']) . "</span></td>";
+        echo "<td>" . h($jogador['cpf']) . "</td>";
+        echo "<td>" . h($jogador['data_nascimento']) . "</td>";
+        echo "<td>" . h($jogador['telefone']) . "</td>";
+        echo "<td><span class='badge badge-goals'>" . h($jogador['gols']) . "</span></td>";
+        echo "</tr>";
+    }
+    echo "</tbody></table>";
 }
 
 function consultar_jogador($conexao, $id)
 {
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return null;
+    }
     $sql = "SELECT j.*, t.nome AS time_nome
             FROM jogadores j
             JOIN times t ON t.id = j.time_id
@@ -237,30 +289,40 @@ function consultar_jogador($conexao, $id)
     $stmt = $conexao->prepare($sql);
     $stmt->bindParam(":id", $id);
     $stmt->execute();
-
     $jogador = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$jogador) {
-        echo "Jogador não encontrado.";
-        return;
+        echo "<div class='alert alert-danger'>Jogador ID #$id não encontrado.</div>";
+        return null;
     }
 
-    echo "Jogador: " . h($jogador['nome']) . " <br>";
-    echo "Time: " . h($jogador['time_nome']) . " <br>";
-    echo "CPF: " . h($jogador['cpf']) . " <br>";
-    echo "Nascimento: " . h($jogador['data_nascimento']) . " <br>";
-    echo "Telefone: " . h($jogador['telefone']) . " <br>";
-    echo "Responsável: " . h($jogador['nome_responsavel']) . " <br>";
-    echo "Telefone do responsável: " . h($jogador['telefone_responsavel']) . " <br>";
-    echo "Gols: " . h($jogador['gols']);
+    echo "<div class='card'>";
+    echo "<h2>" . h($jogador['nome']) . " <span class='badge badge-team'>" . h($jogador['time_nome']) . "</span></h2>";
+    echo "<p><strong>CPF:</strong> " . h($jogador['cpf']) . "</p>";
+    echo "<p><strong>Data Nasc:</strong> " . h($jogador['data_nascimento']) . "</p>";
+    echo "<p><strong>Telefone:</strong> " . h($jogador['telefone']) . "</p>";
+    echo "<p><strong>Gols:</strong> <span class='badge badge-goals'>" . h($jogador['gols']) . " Gols</span></p>";
+
+    if ($jogador['nome_responsavel']) {
+        echo "<hr style='margin:1rem 0;'>";
+        echo "<p><strong>Responsável:</strong> " . h($jogador['nome_responsavel']) . "</p>";
+        echo "<p><strong>Telefone do Responsável:</strong> " . h($jogador['telefone_responsavel']) . "</p>";
+    }
+    echo "</div>";
+
+    return $jogador;
 }
 
 function atualizar_jogador($conexao, $id, $nome_time, $nome, $cpf, $nasc, $telefone, $nome_resp, $tel_resp)
 {
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
     $time_id = buscar_id_time($conexao, $nome_time);
 
     if (!$time_id) {
-        echo "Time não encontrado.";
+        echo "<div class='alert alert-danger'>Time '$nome_time' não foi encontrado.</div>";
         return;
     }
 
@@ -285,12 +347,12 @@ function atualizar_jogador($conexao, $id, $nome_time, $nome, $cpf, $nasc, $telef
         $stmt->execute();
 
         if ($stmt->rowCount() > 0) {
-            echo "Jogador atualizado com sucesso!";
+            echo "<div class='alert alert-success'>Jogador ID #$id atualizado com sucesso!</div>";
         } else {
-            echo "Jogador não encontrado.";
+            echo "<div class='alert alert-danger'>Nenhum dado alterado ou Jogador ID #$id não encontrado.</div>";
         }
     } catch (PDOException $e) {
-        echo "Erro ao atualizar jogador: " . h($e->getMessage());
+        echo "<div class='alert alert-danger'>Erro ao atualizar jogador: " . h($e->getMessage()) . "</div>";
     }
 }
 
@@ -298,36 +360,37 @@ function atualizar_jogador($conexao, $id, $nome_time, $nome, $cpf, $nasc, $telef
 
 function Cadastrar_user($conexao, $email, $senha)
 {
+    if (!$conexao) {
+        echo "<div class='alert alert-danger'>Sem conexão com o banco de dados.</div>";
+        return;
+    }
     try {
         $sql = "INSERT INTO usuarios (email, senha) VALUES (:email, :senha)";
 
-        $senha_hash = password_hash($senha, PASSWORD_DEFAULT); // nunca salvar a senha pura
+        $senha_hash = password_hash($senha, PASSWORD_DEFAULT);
 
         $stmt = $conexao->prepare($sql);
         $stmt->bindParam(":email", $email);
         $stmt->bindParam(":senha", $senha_hash);
         $stmt->execute();
 
-        echo "Usuario cadastrado com sucesso!";
+        echo "<div class='alert alert-success'>Usuário cadastrado com sucesso! <a href='login.php'>Clique aqui para entrar</a>.</div>";
     } catch (PDOException $e) {
-        if ($e->getCode() == '23505') {
-            echo "Esse e-mail já está cadastrado.";
+        if ($e->getCode() == '23505' || strpos($e->getMessage(), 'unique') !== false) {
+            echo "<div class='alert alert-danger'>Este e-mail já está cadastrado no sistema.</div>";
         } else {
-            echo "Erro ao cadastrar usuário: " . h($e->getMessage());
+            echo "<div class='alert alert-danger'>Erro ao cadastrar usuário: " . h($e->getMessage()) . "</div>";
         }
     }
 }
 
 function consultar_user($conexao, $email)
 {
+    if (!$conexao) return null;
     $sql = "SELECT id, email, senha FROM usuarios WHERE email = :email";
-
     $stmt = $conexao->prepare($sql);
     $stmt->bindParam(":email", $email);
     $stmt->execute();
-
-    $usuario = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    return $usuario;
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 ?>

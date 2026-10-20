@@ -1,12 +1,14 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>footer</title>
-</head>
-<body>
-    <h3> <strong>Copa Bololô</strong> &copy;</h3>
-    <small>&copy; Direitos: Copa Bololô.</small>
+</main>
+<footer class="main-footer">
+    <div class="footer-container">
+        <div class="footer-info">
+            <h3>⚽ Copa Bololô</h3>
+            <p>O maior campeonato de futebol amador da região.</p>
+        </div>
+        <div class="footer-copy">
+            <p>&copy; <?= date('Y') ?> Copa Bololô. Todos os direitos reservados.</p>
+        </div>
+    </div>
+</footer>
 </body>
 </html>
