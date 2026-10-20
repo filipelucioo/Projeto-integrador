@@ -1,7 +1,6 @@
 <?php
 $page_title = "Área Restrita - Login";
 require_once __DIR__ . '/../includes/functions.php';
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
 
 $erro = "";
 
@@ -9,9 +8,9 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
     $usuario = consultar_user($conexao, $_POST['email']);
 
     if ($usuario && password_verify($_POST['senha'], $usuario['senha'])) {
+        session_regenerate_id(true);
         $_SESSION['usuario_id'] = $usuario['id'];
-        $redirect_url = defined('BASE_URL') ? BASE_URL . "index.php" : "../index.php";
-        header("Location: " . $redirect_url);
+        header("Location: " . BASE_URL . "index.php");
         exit;
     } else {
         $erro = "E-mail ou senha incorretos.";

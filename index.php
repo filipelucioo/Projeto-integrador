@@ -10,23 +10,23 @@ include __DIR__ . '/includes/header.php';
 </div>
 
 <div class="grid-2">
-    <div class="card">
-        <h2>Quem Somos</h2>
+    <div class="card shadow">
+        <h2>👥 Quem Somos</h2>
         <p>O Campeonato Bololô nasceu da paixão pelo futebol raiz e da resenha de fim de semana. Somos uma liga de futebol amador criada para dar palco aos times montados na rua, no bairro, na faculdade ou no trabalho.</p>
         <p style="margin-top: 1rem;">Aqui, a sua turma de amigos deixa de jogar apenas partidas avulsas e ganha um campeonato de verdade para disputar.</p>
     </div>
 
-    <div class="card">
-        <h2>O Que Fazemos</h2>
+    <div class="card shadow">
+        <h2>⚡ O Que Fazemos</h2>
         <ul style="padding-left: 1.2rem; line-height: 1.8;">
             <li><strong>Gestão de Competição:</strong> Elaboração de tabelas, fases de grupos, mata-mata e agendamento de jogos.</li>
             <li><strong>Infraestrutura Completa:</strong> Reserva de campos de qualidade e arbitragem imparcial.</li>
-            <li><strong>Estatísticas e Mídia:</strong> Acompanhamento de classificação, artilharia, cartões e destaques da rodada.</li>
+            <li><strong>Estatísticas e Mídia:</strong> Acompanhamento de classificação, artilharia e destaques da rodada.</li>
         </ul>
     </div>
 </div>
 
-<div class="card shadow">
+<div class="card shadow" style="margin-top: 1.5rem;">
     <h2>📋 Regras do Campeonato</h2>
     <table class="data-table">
         <thead>

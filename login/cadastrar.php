@@ -9,7 +9,7 @@ include __DIR__ . '/../includes/header.php';
 
     <?php
     if ($_SERVER['REQUEST_METHOD'] == "POST") {
-        Cadastrar_user($conexao, $_POST['email'], $_POST['senha']);
+        cadastrar_user($conexao, $_POST['email'], $_POST['senha']);
     }
     ?>
 

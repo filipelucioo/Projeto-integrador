@@ -19,9 +19,10 @@ include __DIR__ . '/../includes/header.php';
     </form>
 </div>
 
-<?php
-if ($_SERVER['REQUEST_METHOD'] == "POST") {
-    consultar_jogador($conexao, $_POST['id']);
-}
-include __DIR__ . '/../includes/footer.php';
-?>
+<?php if ($_SERVER['REQUEST_METHOD'] == "POST"): ?>
+    <div class="card" style="max-width: 500px; margin: 0 auto;">
+        <?php consultar_jogador($conexao, $_POST['id']); ?>
+    </div>
+<?php endif; ?>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>

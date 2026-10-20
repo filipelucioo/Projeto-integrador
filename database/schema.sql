@@ -1,4 +1,4 @@
--- Script do Banco de Dados para Copa Bololô (PostgreSQL / MySQL)
+-- Script do Banco de Dados para Copa Bololô (PostgreSQL)
 
 CREATE TABLE IF NOT EXISTS usuarios (
     id SERIAL PRIMARY KEY,
@@ -38,4 +38,14 @@ CREATE TABLE IF NOT EXISTS jogos (
     data_jogo DATE NOT NULL,
     FOREIGN KEY (time_casa_id) REFERENCES times(id),
     FOREIGN KEY (time_fora_id) REFERENCES times(id)
+);
+
+-- gols de cada jogador em cada jogo (usada na tabela e no histórico)
+CREATE TABLE IF NOT EXISTS jogo_gols (
+    id SERIAL PRIMARY KEY,
+    jogo_id INT NOT NULL,
+    jogador_id INT NOT NULL,
+    quantidade INT NOT NULL,
+    FOREIGN KEY (jogo_id) REFERENCES jogos(id) ON DELETE CASCADE,
+    FOREIGN KEY (jogador_id) REFERENCES jogadores(id)
 );
