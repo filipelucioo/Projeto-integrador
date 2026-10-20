@@ -10,7 +10,8 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
 
     if ($usuario && password_verify($_POST['senha'], $usuario['senha'])) {
         $_SESSION['usuario_id'] = $usuario['id'];
-        header("Location: " . BASE_URL . "index.php");
+        $redirect_url = defined('BASE_URL') ? BASE_URL . "index.php" : "../index.php";
+        header("Location: " . $redirect_url);
         exit;
     } else {
         $erro = "E-mail ou senha incorretos.";
