@@ -20,7 +20,7 @@
         <a href="/Projeto-integrador/app/select_where_time.php">Listar um Time</a>
         <a href="/Projeto-integrador/app/select_jogador.php">Listar Jogadores</a>
         <a href="/Projeto-integrador/app/select_time.php">Listar Time</a>
-        <a href="/Projeto-integrador/app/select_where_time.php">Listar um Jogador</a>a>
+        <a href="/Projeto-integrador/app/select_where_time.php">Listar um Jogador</a>
         <a href="/login/logout.php">Logout</a>
     </nav>
  </body>

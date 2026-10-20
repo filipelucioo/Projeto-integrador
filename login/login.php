@@ -1,25 +1,18 @@
 <?php
-require_once __DIR__ . '/../includes/functions.php';
+require_once '../includes/functions.php';
+session_start();
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+$erro = "";
 
-$mensagem = '';
 if ($_SERVER['REQUEST_METHOD'] == "POST") {
-    try {
-        $usuario = consultar_user($conexao, trim($_POST['email']));
+    $usuario = consultar_user($conexao, $_POST['email']);
 
-        if ($usuario && password_verify($_POST['senha'], $usuario['senha'])) {
-            session_regenerate_id(true);
-            $_SESSION['usuario_id'] = $usuario['id'];
-            $_SESSION['usuario_email'] = $usuario['email'];
-            header('Location: /Projeto-integrador/index.php');
-            exit;
-        }
-        $mensagem = "E-mail ou senha incorretos.";
-    } catch (PDOException $e) {
-        $mensagem = mensagem_erro_bd($e);
+    if ($usuario && password_verify($_POST['senha'], $usuario['senha'])) {
+        $_SESSION['usuario_id'] = $usuario['id'];
+        header("Location: /Projeto-integrador/index.php");
+        exit;
+    } else {
+        $erro = "E-mail ou senha incorretos.";
     }
 }
 ?>
@@ -32,13 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
     <title>Página de Login</title>
 </head>
 <body>
-    <h1>COPA BOLOLÔ</h1>
-    <h2>Login</h2>
-    <?php if ($mensagem): ?><p><strong><?= h($mensagem) ?></strong></p><?php endif; ?>
+    <?php include '../includes/header.php'; ?>
 
+    <h1>Login</h1>
     <form action="" method="post">
         <label for="email">E-mail: </label>
-        <input type="email" name="email" id="email" required><br>
+        <input type="email" name="email" id="email" required><br><br>
 
         <label for="senha">Senha: </label>
         <input type="password" name="senha" id="senha" required><br><br>
@@ -46,8 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] == "POST") {
         <input type="submit" value="Entrar">
     </form>
 
+    <p><?= h($erro) ?></p>
     <p>Ainda não tem conta? <a href="cadastrar.php">Cadastre-se</a></p>
 
-    <?php include __DIR__ . '/../includes/footer.php'; ?>
+    <?php include '../includes/footer.php'; ?>
 </body>
 </html>

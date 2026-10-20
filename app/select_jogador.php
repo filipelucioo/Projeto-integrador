@@ -1,6 +1,6 @@
 <?php
-require_once __DIR__ . '/../login/verifica_user.php';
-require_once __DIR__ . '/../includes/functions.php';
+require_once '../includes/functions.php';
+require_once '../login/verifica_user.php';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -8,14 +8,16 @@ require_once __DIR__ . '/../includes/functions.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../style/style.css">
-    <title>Lista de Jogadores</title>
+    <title>Ver Jogadores</title>
 </head>
 <body>
-    <?php include __DIR__ . '/../includes/header.php'; ?>
+    <?php include '../includes/header.php'; ?>
 
-    <h1>Lista completa de jogadores</h1>
-    <?php exibir_tabela_jogadores(listar_jogadores($conexao)); ?>
+    <div style="width: 30%; margin:auto; text-align:center; border:1px solid black; border-radius:5px;">
+        <h3>Lista completa de jogadores:</h3>
+        <?php listar_jogadores($conexao); ?>
+    </div>
 
-    <?php include __DIR__ . '/../includes/footer.php'; ?>
+    <?php include '../includes/footer.php'; ?>
 </body>
 </html>
