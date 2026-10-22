@@ -7,7 +7,7 @@ require_once __DIR__ . '/../login/verifica_user.php';
 $times = $conexao->query("SELECT id, nome FROM times ORDER BY nome ASC")->fetchAll(PDO::FETCH_ASSOC);
 $jogadores = $conexao->query("SELECT id, time_id, nome FROM jogadores ORDER BY nome ASC")->fetchAll(PDO::FETCH_ASSOC);
 
-// organiza os jogadores por time (o JavaScript usa isso)
+// organiza os jogadores por time
 $jogadores_por_time = [];
 foreach ($jogadores as $j) {
     $jogadores_por_time[$j['time_id']][] = $j;
@@ -52,7 +52,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="form-group">
                     <label for="time_casa_id">Selecionar Time:</label>
                     <select name="time_casa_id" id="time_casa_id" required onchange="atualizarJogadores()">
-                        <option value="">-- Selecione --</option>
+                        <option value=""> Selecione </option>
                         <?php foreach ($times as $t): ?>
                             <option value="<?= (int)$t['id'] ?>"><?= h($t['nome']) ?></option>
                         <?php endforeach; ?>
@@ -76,7 +76,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="form-group">
                     <label for="time_fora_id">Selecionar Time:</label>
                     <select name="time_fora_id" id="time_fora_id" required onchange="atualizarJogadores()">
-                        <option value="">-- Selecione --</option>
+                        <option value=""> Selecione </option>
                         <?php foreach ($times as $t): ?>
                             <option value="<?= (int)$t['id'] ?>"><?= h($t['nome']) ?></option>
                         <?php endforeach; ?>
