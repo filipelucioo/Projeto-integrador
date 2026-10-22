@@ -129,24 +129,24 @@ psql --version
 **Caminho A (Linux, macOS ou Git Bash):**
 
 ```bash
-cd ~ && git clone https://github.com/filipelucioo/Projeto-integrador && cd Projeto-integrador
+cd ~ && git clone https://github.com/filipelucioo/copa-bololo && cd copa-bololo
 ```
 
 **Caminho A (Windows, PowerShell):**
 
 ```powershell
-cd ~; git clone https://github.com/filipelucioo/Projeto-integrador; cd Projeto-integrador
+cd ~; git clone https://github.com/filipelucioo/copa-bololo; cd copa-bololo
 ```
 
 **Caminho B (servidor):**
 
 ```bash
-sudo mkdir -p /var/www/html && sudo git clone https://github.com/filipelucioo/Projeto-integrador /var/www/html/Projeto-integrador && cd /var/www/html/Projeto-integrador
+sudo mkdir -p /var/www/html && sudo git clone https://github.com/filipelucioo/copa-bololo /var/www/html/copa-bololo && cd /var/www/html/copa-bololo
 ```
 
 Se você baixou o `.zip`, extraia na pasta do seu caminho e entre nela pelo terminal.
 
-> **Importante:** os passos seguintes devem ser feitos dentro da pasta do projeto. Para conferir, rode `pwd` (ou `cd` no PowerShell): o final do caminho deve ser `Projeto-integrador`.
+> **Importante:** os passos seguintes devem ser feitos dentro da pasta do projeto. Para conferir, rode `pwd` (ou `cd` no PowerShell): o final do caminho deve ser `copa-bololo`.
 
 ### Passo 2: criar o banco de dados
 
@@ -155,14 +155,14 @@ Serão dois passos: criar o usuário e o banco `campeonato` e depois carregar o 
 **Caminhos A (Linux) e B (servidor).** Troque `troque-esta-senha` por uma senha de verdade e anote-a para o passo 3:
 
 ```bash
-sudo -u postgres psql -c "CREATE USER campeonato WITH PASSWORD 'troque-esta-senha';"
+sudo -u postgres psql -c "CREATE USER campeonato WITH PASSWORD 'campeonato';"
 sudo -u postgres psql -c "CREATE DATABASE campeonato OWNER campeonato;"
 ```
 
 **Caminho A (Windows e macOS).** Cada comando pede a senha do usuário `postgres`:
 
 ```bash
-psql -U postgres -c "CREATE USER campeonato WITH PASSWORD 'troque-esta-senha';"
+psql -U postgres -c "CREATE USER campeonato WITH PASSWORD 'campeonato';"
 psql -U postgres -c "CREATE DATABASE campeonato OWNER campeonato;"
 ```
 
