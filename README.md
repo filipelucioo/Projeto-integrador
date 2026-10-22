@@ -5,17 +5,18 @@ Aplicação web em PHP para organizar um campeonato de futebol amador: cadastro 
 ## Sumário
 
 1. [Visão geral](#1-visão-geral)
-2. [Requisitos e funcionalidades](#2-requisitos-e-funcionalidades)
-3. [Arquitetura e fluxo](#3-arquitetura-e-fluxo)
-4. [Modelo de dados](#4-modelo-de-dados)
-5. [Ambiente do projeto](#5-ambiente-do-projeto)
-6. [Criar as tabelas (banco vazio)](#6-criar-as-tabelas-banco-vazio)
-7. [Gerar o dump (backup)](#7-gerar-o-dump-backup)
-8. [Restaurar o dump em outra máquina — passo a passo](#8-restaurar-o-dump-em-outra-máquina--passo-a-passo)
-9. [Fluxograma da restauração](#9-fluxograma-da-restauração)
-10. [Validação](#10-validação)
-11. [Arquivos relacionados](#11-arquivos-relacionados)
-12. [Proteções existentes](#12-proteções-existentes)
+2. [Instalação e execução](#2-instalação-e-execução)
+3. [Requisitos e funcionalidades](#3-requisitos-e-funcionalidades)
+4. [Arquitetura e fluxo](#4-arquitetura-e-fluxo)
+5. [Modelo de dados](#5-modelo-de-dados)
+6. [Ambiente do projeto](#6-ambiente-do-projeto)
+7. [Criar as tabelas (banco vazio)](#7-criar-as-tabelas-banco-vazio)
+8. [Gerar o dump (backup)](#8-gerar-o-dump-backup)
+9. [Restaurar o dump em outra máquina — passo a passo](#9-restaurar-o-dump-em-outra-máquina--passo-a-passo)
+10. [Fluxograma da restauração](#10-fluxograma-da-restauração)
+11. [Validação](#11-validação)
+12. [Arquivos relacionados](#12-arquivos-relacionados)
+13. [Proteções existentes](#13-proteções-existentes)
 
 ---
 
@@ -64,11 +65,271 @@ Projeto-integrador/
 - As páginas carregam `includes/functions.php`, que inicia a sessão, configura a URL base e carrega `database/conect.php`.
 - `database/conect.php` cria a conexão PDO usada pelas consultas.
 - `includes/functions.php` reúne as operações de times, jogadores, usuários, partidas, classificação e artilharia.
-- O banco guarda as informações do campeonato. `database/schema.sql` cria a estrutura (sem dados). Os dados existentes são levados de uma máquina para outra pelo **dump** (seção 7).
+- O banco guarda as informações do campeonato. `database/schema.sql` cria a estrutura (sem dados). Os dados existentes são levados de uma máquina para outra pelo **dump** (seção 8).
 
-## 2. Requisitos e funcionalidades
+## 2. Instalação e execução
 
-### 2.1 Requisitos funcionais
+### Início rápido
+
+Para só ver o site funcionando no seu computador (Linux, com Git, PHP com `pdo_pgsql` e PostgreSQL já instalados) e com o `meu_backup.sql` em mãos. Cole um bloco por vez; o `psql` pede a senha do banco:
+
+```bash
+git clone https://github.com/filipelucioo/Projeto-integrador && cd Projeto-integrador
+sudo -u postgres psql -c "CREATE USER campeonato WITH PASSWORD 'troque-esta-senha';"
+sudo -u postgres psql -c "CREATE DATABASE campeonato OWNER campeonato;"
+```
+
+```bash
+psql -h localhost -U campeonato -d campeonato -f meu_backup.sql
+```
+
+```bash
+nano database/conect.php
+php -S localhost:8000
+```
+
+Abra `http://localhost:8000`. Servidor com Nginx e outros sistemas estão logo abaixo.
+
+### Dois caminhos de instalação
+
+Há dois jeitos de rodar o projeto. Escolha um:
+
+| Caminho | Para quê | Onde fica o projeto | Endereço |
+|---|---|---|---|
+| **A. No seu computador** | Testar e desenvolver. Funciona em Linux, macOS e Windows. | `~/Projeto-integrador` | `http://localhost:8000` |
+| **B. Num servidor Linux com Nginx** | Publicar o site (Debian ou Ubuntu). | `/var/www/html/Projeto-integrador` | `http://IP-DO-SERVIDOR/Projeto-integrador/` |
+
+Os passos 1 a 3 são quase iguais nos dois caminhos; o que muda está marcado em cada passo.
+
+> **Dica:** cole um bloco de comando por vez e espere terminar antes do próximo. O `psql` pede a senha do banco, e uma linha colada junto seria lida como senha.
+
+### 2.1 O que você precisa
+
+| Programa | Versão | Observação |
+|---|---|---|
+| Git | qualquer | Para baixar o projeto (ou baixe o `.zip` e extraia). |
+| PHP | 8.0 ou superior | Com a extensão `pdo_pgsql`. |
+| PostgreSQL | qualquer atual | O cliente `psql` precisa estar disponível no terminal. |
+| Nginx | qualquer atual | Só no caminho B, junto com o `php-fpm`. |
+| `meu_backup.sql` | — | Dump com os dados (seção 8). Sem ele, o banco começa vazio com o `schema.sql`. |
+
+Para conferir os programas:
+
+```bash
+git --version
+php -v
+php -m | grep -i pgsql
+psql --version
+```
+
+`php -m` deve listar `pdo_pgsql` e `pgsql`. No Windows, ative `extension=pdo_pgsql` e `extension=pgsql` no `php.ini` e use `php -m | findstr pgsql`.
+
+### Passo 1: baixar o projeto
+
+**Caminho A (Linux, macOS ou Git Bash):**
+
+```bash
+cd ~ && git clone https://github.com/filipelucioo/Projeto-integrador && cd Projeto-integrador
+```
+
+**Caminho A (Windows, PowerShell):**
+
+```powershell
+cd ~; git clone https://github.com/filipelucioo/Projeto-integrador; cd Projeto-integrador
+```
+
+**Caminho B (servidor):**
+
+```bash
+sudo mkdir -p /var/www/html && sudo git clone https://github.com/filipelucioo/Projeto-integrador /var/www/html/Projeto-integrador && cd /var/www/html/Projeto-integrador
+```
+
+Se você baixou o `.zip`, extraia na pasta do seu caminho e entre nela pelo terminal.
+
+> **Importante:** os passos seguintes devem ser feitos dentro da pasta do projeto. Para conferir, rode `pwd` (ou `cd` no PowerShell): o final do caminho deve ser `Projeto-integrador`.
+
+### Passo 2: criar o banco de dados
+
+Serão dois passos: criar o usuário e o banco `campeonato` e depois carregar o conteúdo (o dump com os dados ou apenas as tabelas vazias).
+
+**Caminhos A (Linux) e B (servidor).** Troque `troque-esta-senha` por uma senha de verdade e anote-a para o passo 3:
+
+```bash
+sudo -u postgres psql -c "CREATE USER campeonato WITH PASSWORD 'troque-esta-senha';"
+sudo -u postgres psql -c "CREATE DATABASE campeonato OWNER campeonato;"
+```
+
+**Caminho A (Windows e macOS).** Cada comando pede a senha do usuário `postgres`:
+
+```bash
+psql -U postgres -c "CREATE USER campeonato WITH PASSWORD 'troque-esta-senha';"
+psql -U postgres -c "CREATE DATABASE campeonato OWNER campeonato;"
+```
+
+Agora carregue o conteúdo. Escolha **uma** das opções (o comando pede a senha do usuário `campeonato`):
+
+**Opção 1: com os dados (dump):**
+
+```bash
+psql -h localhost -U campeonato -d campeonato -f meu_backup.sql
+```
+
+**Opção 2: banco vazio (só as tabelas):**
+
+```bash
+psql -h localhost -U campeonato -d campeonato -f database/schema.sql
+```
+
+Confira:
+
+```bash
+psql -h localhost -U campeonato -d campeonato -c "\dt"
+```
+
+Devem aparecer `usuarios`, `times`, `jogadores`, `jogos` e `jogo_gols`.
+
+> **Atenção:** rode o dump uma única vez e em banco vazio. Repetir a restauração gera erros `already exists`. O `schema.sql`, ao contrário, pode ser rodado quantas vezes quiser sem apagar dados. Para recomeçar do zero, veja a seção 9.
+
+> **Prefere o pgAdmin?** Clique com o botão direito em *Databases*, *Create*, *Database*, dê o nome `campeonato` e salve. Depois abra o *Query Tool* nesse banco, carregue o `meu_backup.sql` (ou o `database/schema.sql`) e execute (F5).
+
+### Passo 3: configurar a conexão com o banco
+
+O arquivo `database/conect.php` não vem no repositório: ele fica fora do Git para a senha não ser publicada. Crie-o (ou edite-o, se já existir) com os dados do seu PostgreSQL.
+
+Windows:
+
+```powershell
+notepad database\conect.php
+```
+
+Linux e macOS:
+
+```bash
+nano database/conect.php
+```
+
+Ajuste os dados da conexão:
+
+```php
+$host   = 'localhost';
+$dbname = 'campeonato';
+$user   = 'campeonato';
+$pass   = '<senha>';
+```
+
+| Campo | O que colocar |
+|---|---|
+| `$host` | `localhost` serve quando o banco está no mesmo computador. Se estiver em outra máquina, use o IP dela (por exemplo, `192.168.10.18`). A conexão usa a porta padrão do PostgreSQL (`5432`). |
+| `$dbname` | `campeonato`, o banco criado no passo 2. |
+| `$user`, `$pass` | `campeonato` e a senha que você definiu no passo 2. |
+
+Salve o arquivo (no Notepad, `Ctrl+S`; no nano, `Ctrl+O`, `Enter` e `Ctrl+X`).
+
+### Passo 4: iniciar o site
+
+#### Caminho A: servidor embutido do PHP
+
+Dentro da pasta do projeto:
+
+```bash
+php -S localhost:8000
+```
+
+Abra `http://localhost:8000` no navegador. Deixe o terminal aberto enquanto usa o site; para parar, aperte `Ctrl+C`. O servidor embutido serve só para desenvolvimento e testes.
+
+#### Caminho B: servidor Linux com Nginx e PHP-FPM
+
+Use o mesmo terminal do começo ao fim (a variável `PHP_V` do passo B2 se perde se você fechá-lo).
+
+**B1.** Instale os pacotes:
+
+```bash
+sudo apt update && sudo apt install -y nginx php-fpm php-cli php-pgsql postgresql git
+```
+
+**B2.** Descubra a versão do PHP instalada. Os próximos comandos usam essa versão:
+
+```bash
+PHP_V=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;') && echo "PHP $PHP_V"
+```
+
+Deve aparecer algo como `PHP 8.3`. Se o Apache estiver instalado, pare-o para liberar a porta 80:
+
+```bash
+sudo systemctl stop apache2 && sudo systemctl disable apache2
+```
+
+**B3.** Garanta que os serviços estão ativos:
+
+```bash
+sudo systemctl enable --now postgresql nginx php$PHP_V-fpm
+```
+
+**B4.** Crie a configuração do site no Nginx. Este bloco grava o arquivo `/etc/nginx/sites-available/campeonato`:
+
+```bash
+sudo tee /etc/nginx/sites-available/campeonato > /dev/null <<'EOF'
+server {
+    listen 80 default_server;
+    server_name _;
+
+    root /var/www/html;
+    index index.php index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/phpPHPVER-fpm.sock;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+EOF
+```
+
+Agora troque o `PHPVER` do arquivo pela versão que você descobriu no B2:
+
+```bash
+sudo sed -i "s/PHPVER/$PHP_V/" /etc/nginx/sites-available/campeonato
+```
+
+**B5.** Ative o site, desative o site padrão do Nginx e teste a configuração:
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/campeonato /etc/nginx/sites-enabled/campeonato
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+```
+
+O último comando deve terminar com `syntax is ok` e `test is successful`. Se mostrar um erro, ele diz a linha do problema no arquivo.
+
+**B6.** Dê ao servidor web permissão sobre a pasta do projeto:
+
+```bash
+sudo chown -R www-data:www-data /var/www/html/Projeto-integrador
+```
+
+**B7.** Recarregue o Nginx e descubra o endereço do site:
+
+```bash
+sudo systemctl reload nginx
+echo "http://$(hostname -I | awk '{print $1}')/Projeto-integrador/"
+```
+
+Abra o endereço que apareceu no navegador. Se ele não abrir de outra máquina, libere a porta 80 no firewall: `sudo ufw allow 'Nginx HTTP'`. Se algo falhar, consulte `sudo tail -n 30 /var/log/nginx/error.log`.
+
+O código descobre sozinho em que endereço está, então nada precisa ser configurado além disso.
+
+**Deu certo** se a página inicial abre sem erro de conexão e, depois de criar uma conta e entrar, a classificação (`tabela.php`) e a artilharia (`artilharia.php`) mostram os dados que estavam no dump. Sobre o dump e a restauração em detalhes, veja as seções 8 e 9.
+
+## 3. Requisitos e funcionalidades
+
+### 3.1 Requisitos funcionais
 
 | ID | Requisito | Módulo |
 |---|---|---|
@@ -87,7 +348,7 @@ A classificação atribui 3 pontos por vitória e 1 por empate. O desempate cons
 
 Não há perfis de usuário (administrador/cliente): o controle de acesso é a exigência de sessão nas páginas protegidas.
 
-### 2.2 Requisitos não funcionais
+### 3.2 Requisitos não funcionais
 
 | Categoria | Situação |
 |---|---|
@@ -98,9 +359,9 @@ Não há perfis de usuário (administrador/cliente): o controle de acesso é a e
 | Saída HTML | Função `h()` (`htmlspecialchars()`) para escapar valores |
 | Integridade | Chaves estrangeiras no esquema; cascata somente onde especificado |
 
-## 3. Arquitetura e fluxo
+## 4. Arquitetura e fluxo
 
-### 3.1 Acesso ao banco
+### 4.1 Acesso ao banco
 
 ```mermaid
 flowchart LR
@@ -112,7 +373,7 @@ flowchart LR
     C -->|PDO / PostgreSQL| DB[(Banco campeonato<br/>192.168.10.18)]
 ```
 
-### 3.2 Login e operações
+### 4.2 Login e operações
 
 ```mermaid
 sequenceDiagram
@@ -137,7 +398,7 @@ sequenceDiagram
 
 Ao registrar uma partida, a aplicação valida times e placar, grava o jogo e seus gols em uma transação e atualiza o total de gols dos jogadores. A classificação é calculada a partir dos jogos cadastrados.
 
-## 4. Modelo de dados
+## 5. Modelo de dados
 
 As cinco tabelas constam em `database/schema.sql`.
 
@@ -189,7 +450,7 @@ erDiagram
     }
 ```
 
-### 4.1 Relacionamentos e integridade
+### 5.1 Relacionamentos e integridade
 
 - `usuarios.email` é único e obrigatório.
 - Cada jogador pertence a um time. Excluir o time apaga seus jogadores (`ON DELETE CASCADE`).
@@ -198,7 +459,7 @@ erDiagram
 - `jogadores.gols` guarda o total agregado usado pela artilharia; `jogo_gols` guarda os gols de cada partida.
 - Não há `CHECK` para placares/quantidades, nem unicidade para CPF ou para o par partida/jogador.
 
-### 4.2 Script de criação (`database/schema.sql`)
+### 5.2 Script de criação (`database/schema.sql`)
 
 ```sql
 -- Script do Banco de Dados para Copa Bololô (PostgreSQL)
@@ -254,7 +515,7 @@ CREATE TABLE IF NOT EXISTS jogo_gols (
 );
 ```
 
-## 5. Ambiente do projeto
+## 6. Ambiente do projeto
 
 | Item | Valor |
 |---|---|
@@ -265,9 +526,9 @@ CREATE TABLE IF NOT EXISTS jogo_gols (
 | Servidor web | Nginx + PHP-FPM |
 | Diretório de implantação | `/var/www/html/Projeto-integrador` |
 
-O banco e o usuário `campeonato` já existem no servidor `192.168.10.18`, e o servidor da aplicação já consegue conectar a ele. Para uma máquina nova, siga a seção 8.
+O banco e o usuário `campeonato` já existem no servidor `192.168.10.18`, e o servidor da aplicação já consegue conectar a ele. Para uma máquina nova, siga a seção 9.
 
-## 6. Criar as tabelas (banco vazio)
+## 7. Criar as tabelas (banco vazio)
 
 O banco pode começar sem dados. Na raiz do projeto, execute o esquema:
 
@@ -285,7 +546,7 @@ Devem aparecer `usuarios`, `times`, `jogadores`, `jogos` e `jogo_gols`.
 
 > `schema.sql` é SQL simples: use `psql`, não `pg_restore`. O script usa `CREATE TABLE IF NOT EXISTS`, que **não** atualiza tabelas já existentes com estrutura diferente.
 
-## 7. Gerar o dump (backup)
+## 8. Gerar o dump (backup)
 
 Rode no terminal do **servidor do PostgreSQL** (`192.168.10.18`), pois o host é `localhost`:
 
@@ -318,13 +579,13 @@ Para copiar o arquivo para outra máquina, use o painel lateral de arquivos (SFT
 scp usuario@192.168.10.18:~/meu_backup.sql .
 ```
 
-## 8. Restaurar o dump em outra máquina — passo a passo
+## 9. Restaurar o dump em outra máquina — passo a passo
 
 Substitua `<senha>` pela senha que você definir para o usuário `campeonato`.
 
 **Pré-requisitos:** Linux com `apt`, usuário com `sudo` e acesso à internet. Tenha o arquivo `meu_backup.sql` na máquina.
 
-### 8.1 Instalar e iniciar os serviços
+### 9.1 Instalar e iniciar os serviços
 
 ```bash
 sudo apt update && sudo apt install git nginx php-fpm php-cli php-pgsql postgresql postgresql-contrib -y
@@ -348,7 +609,7 @@ sudo systemctl stop apache2
 sudo systemctl disable apache2
 ```
 
-### 8.2 Baixar o projeto
+### 9.2 Baixar o projeto
 
 ```bash
 sudo mkdir -p /var/www/html
@@ -358,7 +619,7 @@ cd /var/www/html/Projeto-integrador
 
 Conferir: `ls -lh database/schema.sql` deve mostrar o arquivo com tamanho maior que zero.
 
-### 8.3 Criar usuário e banco
+### 9.3 Criar usuário e banco
 
 Entre no terminal do PostgreSQL:
 
@@ -369,7 +630,7 @@ sudo -u postgres psql
 Com o prompt `postgres=#` aberto, execute um comando por vez:
 
 ```sql
-CREATE USER campeonato WITH PASSWORD 'campeonato';
+CREATE USER campeonato WITH PASSWORD '<senha>';
 CREATE DATABASE campeonato OWNER campeonato;
 GRANT ALL PRIVILEGES ON DATABASE campeonato TO campeonato;
 \q
@@ -377,7 +638,7 @@ GRANT ALL PRIVILEGES ON DATABASE campeonato TO campeonato;
 
 Resultado esperado: `CREATE ROLE`, `CREATE DATABASE` e `GRANT`. O `\q` sai do PostgreSQL. Se aparecer `already exists`, o usuário ou o banco já existe e você pode seguir para o próximo passo.
 
-### 8.4 Restaurar o dump
+### 9.4 Restaurar o dump
 
 Vá até a pasta onde está o `meu_backup.sql` e execute:
 
@@ -400,7 +661,7 @@ As tabelas `usuarios`, `times`, `jogadores`, `jogos` e `jogo_gols` devem aparece
 
 > **Sem dump?** Para começar com o banco vazio, use `psql -U campeonato -h localhost -d campeonato -f database/schema.sql` no lugar do dump.
 
-### 8.5 Configurar a conexão
+### 9.5 Configurar a conexão
 
 ```bash
 cd /var/www/html/Projeto-integrador
@@ -418,7 +679,7 @@ $pass = 'campeonato';
 
 Salve no `nano` com `Ctrl+O`, `Enter`, e saia com `Ctrl+X`.
 
-### 8.6 Configurar o Nginx
+### 9.6 Configurar o Nginx
 
 Crie o arquivo do site:
 
@@ -466,13 +727,13 @@ sudo systemctl reload nginx
 
 `nginx -t` deve responder `syntax is ok` e `test is successful`.
 
-### 8.7 Permissões
+### 9.7 Permissões
 
 ```bash
 sudo chown -R www-data:www-data /var/www/html/Projeto-integrador
 ```
 
-### 8.8 Validar a aplicação
+### 9.8 Validar a aplicação
 
 Abra no navegador `http://<servidor>/Projeto-integrador/index.php` (na própria máquina, `http://localhost/Projeto-integrador/index.php`).
 
@@ -491,7 +752,7 @@ Se algo falhar, consulte os logs:
 sudo tail -n 30 /var/log/nginx/error.log
 ```
 
-### 8.9 Alternativa rápida para desenvolvimento
+### 9.9 Alternativa rápida para desenvolvimento
 
 Com PHP e `pdo_pgsql` instalados, na raiz do projeto:
 
@@ -501,7 +762,7 @@ php -S 127.0.0.1:8000
 
 Abra `http://127.0.0.1:8000/`. O servidor embutido serve só para desenvolvimento e testes.
 
-## 9. Fluxograma da restauração
+## 10. Fluxograma da restauração
 
 ```mermaid
 flowchart TD
@@ -521,9 +782,9 @@ flowchart TD
     L --> M([Fim])
 ```
 
-## 10. Validação
+## 11. Validação
 
-### 10.1 Banco
+### 11.1 Banco
 
 - [ ] Conexão: `psql -h localhost -U campeonato -d campeonato -W -c "SELECT 1;"`
 - [ ] As cinco tabelas aparecem em `\dt`.
@@ -555,7 +816,7 @@ flowchart TD
 
   As três consultas devem retornar zero linhas.
 
-### 10.2 Aplicação
+### 11.2 Aplicação
 
 - [ ] A página inicial abre sem erro de conexão.
 - [ ] É possível cadastrar uma conta e entrar.
@@ -565,7 +826,7 @@ flowchart TD
 - [ ] A artilharia exibe os gols contabilizados.
 - [ ] O logout encerra a sessão e as páginas protegidas voltam a exigir login.
 
-## 11. Arquivos relacionados
+## 12. Arquivos relacionados
 
 | Arquivo | Função |
 |---|---|
@@ -580,7 +841,7 @@ flowchart TD
 | [`login/`](login/) | Cadastro, login, logout e verificação de sessão |
 | [`style/style.css`](style/style.css) | Estilos da interface |
 
-## 12. Proteções existentes
+## 13. Proteções existentes
 
 - Senhas armazenadas com `password_hash()` e verificadas com `password_verify()`.
 - Identificador de sessão renovado no login.
