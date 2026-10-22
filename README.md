@@ -1,8 +1,6 @@
-# Copa Bololô — documentação técnica e restauração do banco
+# Copa Bololô — documentação técnica, dump e restauração do banco
 
 Aplicação web em PHP para organizar um campeonato de futebol amador: cadastro de times e jogadores, registro de partidas, classificação e artilharia.
-
-
 
 ## Sumário
 
@@ -10,33 +8,35 @@ Aplicação web em PHP para organizar um campeonato de futebol amador: cadastro 
 2. [Requisitos e funcionalidades](#2-requisitos-e-funcionalidades)
 3. [Arquitetura e fluxo](#3-arquitetura-e-fluxo)
 4. [Modelo de dados](#4-modelo-de-dados)
-5. [Restauração do banco](#5-restauração-do-banco)
-6. [Fluxograma da restauração](#6-fluxograma-da-restauração)
-7. [Dependências e pré-requisitos](#7-dependências-e-pré-requisitos)
-8. [Configuração](#8-configuração)
-9. [Validação pós-restauração](#9-validação-pós-restauração)
-10. [Arquivos relacionados](#10-arquivos-relacionados)
-11. [Segurança e operação](#11-segurança-e-operação)
-12. [Rastreabilidade e informações pendentes](#12-rastreabilidade-e-informações-pendentes)
+5. [Ambiente do projeto](#5-ambiente-do-projeto)
+6. [Criar as tabelas (banco vazio)](#6-criar-as-tabelas-banco-vazio)
+7. [Gerar o dump (backup)](#7-gerar-o-dump-backup)
+8. [Restaurar o dump em outra máquina — passo a passo](#8-restaurar-o-dump-em-outra-máquina--passo-a-passo)
+9. [Fluxograma da restauração](#9-fluxograma-da-restauração)
+10. [Validação](#10-validação)
+11. [Arquivos relacionados](#11-arquivos-relacionados)
+12. [Proteções existentes](#12-proteções-existentes)
+
+---
 
 ## 1. Visão geral
 
 ### 1.1 Objetivo
 
-O **Copa Bololô** centraliza informações de um campeonato amador. Visitantes podem consultar a classificação, o histórico de partidas e a artilharia. Usuários cadastrados e autenticados acessam as operações de cadastro e manutenção disponíveis na aplicação.
+O **Copa Bololô** centraliza as informações de um campeonato amador. Visitantes consultam a classificação, o histórico de partidas e a artilharia. Usuários cadastrados e autenticados acessam as operações de cadastro e manutenção.
 
-### 1.2 Tecnologias identificadas
+### 1.2 Tecnologias
 
 | Camada | Tecnologia |
 |---|---|
-| Back-end | PHP |
-| Acesso a dados | PDO |
+| Back-end | PHP 8.0 ou superior |
+| Acesso a dados | PDO + driver `pgsql` |
 | Banco de dados | PostgreSQL |
-| Interface | HTML, CSS e JavaScript |
-| Servidor de desenvolvimento | Servidor embutido do PHP |
+| Servidor web | Nginx + PHP-FPM |
+| Front-end | HTML + CSS |
 | Controle de versão | Git / GitHub |
 
-O projeto usa `PDO_PGSQL` para conectar ao PostgreSQL. O esquema fornecido está escrito em SQL para PostgreSQL; MySQL não é um banco compatível com esse script sem adaptação.
+O projeto usa `PDO_PGSQL`. O esquema é escrito em SQL para PostgreSQL; não é compatível com MySQL sem adaptação.
 
 ### 1.3 Estrutura do projeto
 
@@ -64,18 +64,18 @@ Projeto-integrador/
 - As páginas carregam `includes/functions.php`, que inicia a sessão, configura a URL base e carrega `database/conect.php`.
 - `database/conect.php` cria a conexão PDO usada pelas consultas.
 - `includes/functions.php` reúne as operações de times, jogadores, usuários, partidas, classificação e artilharia.
-- O banco guarda as informações do campeonato. O projeto não contém um dump de dados: `database/schema.sql` cria a estrutura, mas não popula registros de exemplo.
+- O banco guarda as informações do campeonato. `database/schema.sql` cria a estrutura (sem dados). Os dados existentes são levados de uma máquina para outra pelo **dump** (seção 7).
 
 ## 2. Requisitos e funcionalidades
 
-### 2.1 Requisitos funcionais observados
+### 2.1 Requisitos funcionais
 
-| ID | Requisito | Módulo / evidência |
+| ID | Requisito | Módulo |
 |---|---|---|
 | RF01 | Criar conta com e-mail e senha | `login/cadastrar.php`, `cadastrar_user()` |
 | RF02 | Autenticar e encerrar sessão | `login/login.php`, `login/logout.php` |
-| RF03 | Cadastrar, consultar, listar, atualizar e excluir times | `app/*time*.php`, funções de time |
-| RF04 | Cadastrar, consultar, listar, atualizar e excluir jogadores | `app/*jogador*.php`, funções de jogador |
+| RF03 | Cadastrar, consultar, listar, atualizar e excluir times | `app/*time*.php` |
+| RF04 | Cadastrar, consultar, listar, atualizar e excluir jogadores | `app/*jogador*.php` |
 | RF05 | Registrar partidas com times, placar, data e autores dos gols | `app/partidas.php`, `registrar_partida()` |
 | RF06 | Consultar tabela de classificação | `tabela.php`, `obter_tabela_classificacao()` |
 | RF07 | Consultar partidas e autores dos gols | `tabela.php`, `listar_historico_jogos()` |
@@ -83,22 +83,20 @@ Projeto-integrador/
 | RF09 | Calcular pontos, vitórias, empates, derrotas, gols pró/contra e saldo | `obter_tabela_classificacao()` |
 | RF10 | Exibir página institucional e regras da competição | `index.php` |
 
-A classificação atribui 3 pontos por vitória e 1 por empate. O desempate implementado considera, nesta ordem, pontos, vitórias, saldo de gols, gols pró e nome do time.
+A classificação atribui 3 pontos por vitória e 1 por empate. O desempate considera, nesta ordem: pontos, vitórias, saldo de gols, gols pró e nome do time.
 
-O esquema não possui coluna de perfil ou papel de usuário. Portanto, a documentação não considera a existência de perfis distintos de administrador e cliente: o controle disponível é a exigência de sessão nas páginas protegidas.
+Não há perfis de usuário (administrador/cliente): o controle de acesso é a exigência de sessão nas páginas protegidas.
 
-### 2.2 Requisitos não funcionais e limites observados
+### 2.2 Requisitos não funcionais
 
-| Categoria | Situação observada |
+| Categoria | Situação |
 |---|---|
-| Banco | PostgreSQL; conexão via PDO e extensão `pdo_pgsql` |
-| Senhas de usuários | Cadastro com `password_hash()` e validação com `password_verify()` |
-| Sessão | Sessão PHP; o identificador é renovado após login |
-| Consultas | Consultas com parâmetros usam prepared statements; também há consultas fixas sem parâmetros |
-| Saída HTML | A função `h()` usa `htmlspecialchars()` para escapar valores exibidos |
-| Integridade | Chaves estrangeiras definidas no esquema; exclusões em cascata somente onde especificado |
-| Responsividade | Estilos centralizados em `style/style.css`; validar em dispositivos/navegadores do ambiente de destino |
-| Dados pessoais | O esquema armazena CPF, telefone e data de nascimento de técnicos e jogadores; restringir acesso e proteger backups |
+| Banco | PostgreSQL via PDO e extensão `pdo_pgsql` |
+| Senhas | `password_hash()` no cadastro e `password_verify()` no login |
+| Sessão | Sessão PHP; identificador renovado após o login |
+| Consultas | Prepared statements nas consultas com parâmetros |
+| Saída HTML | Função `h()` (`htmlspecialchars()`) para escapar valores |
+| Integridade | Chaves estrangeiras no esquema; cascata somente onde especificado |
 
 ## 3. Arquitetura e fluxo
 
@@ -106,12 +104,12 @@ O esquema não possui coluna de perfil ou papel de usuário. Portanto, a documen
 
 ```mermaid
 flowchart LR
-    N[Navegador] -->|HTTP| PHP[Servidor web + PHP]
-    PHP --> PAG[ index.php / tabela.php / artilharia.php / app / login ]
+    N[Navegador] -->|HTTP| NG[Nginx]
+    NG -->|FastCGI| FPM[PHP-FPM]
+    FPM --> PAG[index / tabela / artilharia / app / login]
     PAG --> F[includes/functions.php]
     F --> C[database/conect.php]
-    C -->|PDO / PostgreSQL| DB[(Banco campeonato)]
-    F -->|consultas e regras| DB
+    C -->|PDO / PostgreSQL| DB[(Banco campeonato<br/>192.168.10.18)]
 ```
 
 ### 3.2 Login e operações
@@ -137,11 +135,11 @@ sequenceDiagram
     end
 ```
 
-Ao registrar uma partida, a aplicação valida os times e o placar, grava o jogo e seus gols em uma transação e atualiza o total de gols dos jogadores. A classificação é calculada a partir dos jogos cadastrados.
+Ao registrar uma partida, a aplicação valida times e placar, grava o jogo e seus gols em uma transação e atualiza o total de gols dos jogadores. A classificação é calculada a partir dos jogos cadastrados.
 
 ## 4. Modelo de dados
 
-As cinco tabelas abaixo constam em `database/schema.sql`.
+As cinco tabelas constam em `database/schema.sql`.
 
 ```mermaid
 erDiagram
@@ -194,44 +192,163 @@ erDiagram
 ### 4.1 Relacionamentos e integridade
 
 - `usuarios.email` é único e obrigatório.
-- Cada jogador pertence a um time. A exclusão do time apaga seus jogadores (`ON DELETE CASCADE`).
-- Cada partida referencia um time da casa e um time visitante. O esquema não define exclusão em cascata para essas referências.
-- `jogo_gols` associa jogadores a partidas. Ao excluir uma partida, seus registros em `jogo_gols` são apagados em cascata; a referência ao jogador não tem cascata.
-- O campo `jogadores.gols` armazena um total agregado usado pela artilharia. `jogo_gols` guarda os gols registrados em cada partida.
-- O esquema não define restrições `CHECK` para placares/quantidades, nem unicidade para CPF ou para o par partida/jogador.
+- Cada jogador pertence a um time. Excluir o time apaga seus jogadores (`ON DELETE CASCADE`).
+- Cada partida referencia um time da casa e um visitante, sem cascata nessas referências.
+- `jogo_gols` associa jogadores a partidas. Excluir uma partida apaga seus registros em `jogo_gols`; a referência ao jogador não tem cascata.
+- `jogadores.gols` guarda o total agregado usado pela artilharia; `jogo_gols` guarda os gols de cada partida.
+- Não há `CHECK` para placares/quantidades, nem unicidade para CPF ou para o par partida/jogador.
 
-## 5. Restauração do banco
+### 4.2 Script de criação (`database/schema.sql`)
 
-### 5.1 O que será restaurado
+```sql
+-- Script do Banco de Dados para Copa Bololô (PostgreSQL)
 
-O repositório fornece **um script de criação de esquema**, não um backup completo. A execução de `database/schema.sql` cria as tabelas `usuarios`, `times`, `jogadores`, `jogos` e `jogo_gols`; não restaura contas, times, jogadores ou partidas previamente cadastrados.
+CREATE TABLE IF NOT EXISTS usuarios (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    senha VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-Os passos abaixo pressupõem Linux com `apt`, acesso `sudo` e que o PostgreSQL esteja no endereço privado `192.168.10.18`. O nome do banco e do usuário informado para a aplicação é `campeonato`. A senha é configurada somente no ambiente, nunca neste documento.
+CREATE TABLE IF NOT EXISTS times (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    tecnico VARCHAR(100) NOT NULL,
+    cpf_tecnico VARCHAR(14) NOT NULL,
+    data_nascimento DATE NOT NULL,
+    telefone VARCHAR(20)
+);
 
-### 5.2 Instalar dependências no servidor da aplicação
+CREATE TABLE IF NOT EXISTS jogadores (
+    id SERIAL PRIMARY KEY,
+    time_id INT NOT NULL,
+    nome VARCHAR(100) NOT NULL,
+    cpf VARCHAR(14) NOT NULL,
+    data_nascimento DATE NOT NULL,
+    telefone VARCHAR(20),
+    nome_responsavel VARCHAR(100),
+    telefone_responsavel VARCHAR(20),
+    gols INT DEFAULT 0,
+    FOREIGN KEY (time_id) REFERENCES times(id) ON DELETE CASCADE
+);
 
-```bash
-sudo apt update
-sudo apt install git apache2 php libapache2-mod-php php-cli php-pgsql postgresql-client -y
-sudo systemctl enable --now apache2
+CREATE TABLE IF NOT EXISTS jogos (
+    id SERIAL PRIMARY KEY,
+    time_casa_id INT NOT NULL,
+    time_fora_id INT NOT NULL,
+    gols_casa INT DEFAULT 0,
+    gols_fora INT DEFAULT 0,
+    data_jogo DATE NOT NULL,
+    FOREIGN KEY (time_casa_id) REFERENCES times(id),
+    FOREIGN KEY (time_fora_id) REFERENCES times(id)
+);
+
+-- gols de cada jogador em cada jogo (usada na tabela e no histórico)
+CREATE TABLE IF NOT EXISTS jogo_gols (
+    id SERIAL PRIMARY KEY,
+    jogo_id INT NOT NULL,
+    jogador_id INT NOT NULL,
+    quantidade INT NOT NULL,
+    FOREIGN KEY (jogo_id) REFERENCES jogos(id) ON DELETE CASCADE,
+    FOREIGN KEY (jogador_id) REFERENCES jogadores(id)
+);
 ```
 
-`postgresql-client` fornece `psql`. Instale o pacote `postgresql` também **na máquina que hospedará o servidor do banco**, caso ele ainda não esteja instalado. Se aplicação e banco estiverem na mesma máquina, instale os dois conjuntos de pacotes nela.
+## 5. Ambiente do projeto
 
-Confira:
+| Item | Valor |
+|---|---|
+| Acesso aos servidores | SSH pelo MobaXterm |
+| Servidor do PostgreSQL | `192.168.10.18` (rede privada), porta `5432` |
+| Banco | `campeonato` |
+| Usuário do banco | `campeonato` |
+| Servidor web | Nginx + PHP-FPM |
+| Diretório de implantação | `/var/www/html/Projeto-integrador` |
+
+O banco e o usuário `campeonato` já existem no servidor `192.168.10.18`, e o servidor da aplicação já consegue conectar a ele. Para uma máquina nova, siga a seção 8.
+
+## 6. Criar as tabelas (banco vazio)
+
+O banco pode começar sem dados. Na raiz do projeto, execute o esquema:
 
 ```bash
-php -v
-php -m | grep -i pgsql
-psql --version
-sudo systemctl status apache2
+psql -h 192.168.10.18 -U campeonato -d campeonato -W -f database/schema.sql
 ```
 
-O módulo `pdo_pgsql` deve estar habilitado no PHP usado pelo Apache. Em instalações Linux, o PHP do terminal e o PHP do Apache podem carregar configurações diferentes.
+O `-W` pede a senha do usuário `campeonato`. A saída esperada contém mensagens `CREATE TABLE`, sem `ERROR`. Confirme:
 
-### 5.3 Baixar o projeto
+```bash
+psql -h 192.168.10.18 -U campeonato -d campeonato -W -c "\dt"
+```
 
-Exemplo de diretório de implantação:
+Devem aparecer `usuarios`, `times`, `jogadores`, `jogos` e `jogo_gols`.
+
+> `schema.sql` é SQL simples: use `psql`, não `pg_restore`. O script usa `CREATE TABLE IF NOT EXISTS`, que **não** atualiza tabelas já existentes com estrutura diferente.
+
+## 7. Gerar o dump (backup)
+
+Rode no terminal do **servidor do PostgreSQL** (`192.168.10.18`), pois o host é `localhost`:
+
+```bash
+pg_dump -U postgres -h localhost -p 5432 -F p -b -v -f meu_backup.sql campeonato
+```
+
+| Opção | Significado |
+|---|---|
+| `-U postgres` | usuário que executa o dump |
+| `-h localhost -p 5432` | servidor e porta do PostgreSQL |
+| `-F p` | formato **plain** (SQL puro, texto) |
+| `-b` | inclui objetos grandes (blobs) |
+| `-v` | modo detalhado (mostra o progresso) |
+| `-f meu_backup.sql` | arquivo de saída |
+| `campeonato` | banco que será exportado |
+
+Confira se o arquivo foi gerado e se tem as tabelas:
+
+```bash
+ls -lh meu_backup.sql
+grep -n "CREATE TABLE" meu_backup.sql
+```
+
+Como o formato é SQL puro, ele é restaurado com `psql -f` (nunca com `pg_restore`).
+
+Para copiar o arquivo para outra máquina, use o painel lateral de arquivos (SFTP) do MobaXterm — arraste `meu_backup.sql` para o computador — ou o comando `scp`:
+
+```bash
+scp usuario@192.168.10.18:~/meu_backup.sql .
+```
+
+## 8. Restaurar o dump em outra máquina — passo a passo
+
+Substitua `<senha>` pela senha que você definir para o usuário `campeonato`.
+
+**Pré-requisitos:** Linux com `apt`, usuário com `sudo` e acesso à internet. Tenha o arquivo `meu_backup.sql` na máquina.
+
+### 8.1 Instalar e iniciar os serviços
+
+```bash
+sudo apt update && sudo apt install git nginx php-fpm php-cli php-pgsql postgresql postgresql-contrib -y
+PHPV=$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;')
+sudo systemctl enable --now postgresql nginx php${PHPV}-fpm
+```
+
+Conferir:
+
+```bash
+php -v                                  # precisa ser 8.0 ou superior
+php -m | grep -i pgsql                  # deve listar pdo_pgsql e pgsql
+sudo systemctl status postgresql        # deve mostrar active
+sudo systemctl status nginx
+```
+
+O Nginx não executa PHP sozinho: ele repassa os arquivos `.php` ao **PHP-FPM**, por isso o pacote é `php-fpm`. Se o Apache estiver instalado, pare-o para liberar a porta 80:
+
+```bash
+sudo systemctl stop apache2
+sudo systemctl disable apache2
+```
+
+### 8.2 Baixar o projeto
 
 ```bash
 sudo mkdir -p /var/www/html
@@ -239,128 +356,178 @@ sudo git clone https://github.com/filipelucioo/Projeto-integrador.git /var/www/h
 cd /var/www/html/Projeto-integrador
 ```
 
-Confirme a presença do esquema:
+Conferir: `ls -lh database/schema.sql` deve mostrar o arquivo com tamanho maior que zero.
 
-```bash
-test -s database/schema.sql && echo "schema.sql encontrado"
-grep -n "CREATE TABLE" database/schema.sql
-```
+### 8.3 Criar usuário e banco
 
-### 5.4 Criar banco e usuário
-
-Execute estes comandos na máquina do PostgreSQL. Se o banco ou o usuário já existirem, não os recrie: confirme que pertencem ao usuário correto e que este tem permissões suficientes.
+Entre no terminal do PostgreSQL:
 
 ```bash
 sudo -u postgres psql
 ```
 
-No prompt `postgres=#`, crie o papel e o banco. Substitua o placeholder por uma senha forte, que não seja compartilhada nem registrada no Git:
+Com o prompt `postgres=#` aberto, execute um comando por vez:
 
 ```sql
-CREATE ROLE campeonato LOGIN PASSWORD '<defina-uma-senha-forte>';
+CREATE USER campeonato WITH PASSWORD 'campeonato';
 CREATE DATABASE campeonato OWNER campeonato;
+GRANT ALL PRIVILEGES ON DATABASE campeonato TO campeonato;
 \q
 ```
 
-Para conectar de outra máquina, configure o PostgreSQL para aceitar conexões da rede privada da aplicação, permita a origem apropriada em `pg_hba.conf` e no firewall e mantenha a porta `5432` inacessível pela internet pública. Não altere `listen_addresses` ou regras de acesso sem limitar as origens autorizadas.
+Resultado esperado: `CREATE ROLE`, `CREATE DATABASE` e `GRANT`. O `\q` sai do PostgreSQL. Se aparecer `already exists`, o usuário ou o banco já existe e você pode seguir para o próximo passo.
 
-### 5.5 Criar as tabelas
+### 8.4 Restaurar o dump
 
-Execute a partir da raiz do projeto. O cliente solicitará a senha do papel `campeonato`:
+Vá até a pasta onde está o `meu_backup.sql` e execute:
 
 ```bash
-psql -h 192.168.10.18 -U campeonato -d campeonato -W -f database/schema.sql
+psql -U campeonato -h localhost -d campeonato -f meu_backup.sql
 ```
 
-O resultado esperado inclui mensagens `CREATE TABLE`, sem `ERROR`. O script usa `CREATE TABLE IF NOT EXISTS`, mas isso não substitui migrações: se as tabelas já existirem com estrutura diferente, a execução não atualiza automaticamente as colunas existentes.
+O `-h localhost` evita o erro de autenticação *peer*. O dump é SQL puro, então use `psql`, não `pg_restore`. A saída deve conter `SET`, `CREATE TABLE`, `COPY` etc., **sem nenhum `ERROR`**.
 
-> Não use `pg_restore` para `schema.sql`: ele é SQL simples e deve ser executado com `psql`.
+> Restaure em um banco **vazio**. Se o banco já tiver as tabelas, aparecerão erros `already exists`. Para recomeçar do zero:
+> `sudo -u postgres psql -c "DROP DATABASE campeonato;"` e depois `sudo -u postgres psql -c "CREATE DATABASE campeonato OWNER campeonato;"`.
 
-## 6. Fluxograma da restauração
+Conferir:
 
-```mermaid
-flowchart TD
-    A([Início]) --> B[Instalar PHP, PDO PostgreSQL, Apache e psql]
-    B --> C[Clonar Projeto-integrador]
-    C --> D[Confirmar database/schema.sql]
-    D --> E{Banco e papel campeonato existem?}
-    E -- Não --> F[Criar papel e banco]
-    E -- Sim --> G[Validar propriedade e permissões]
-    F --> H[Configurar acesso privado ao PostgreSQL]
-    G --> H
-    H --> I[Executar psql -f database/schema.sql]
-    I --> J{Há erros?}
-    J -- Sim --> K[Corrigir acesso ou esquema e repetir com segurança]
-    K --> I
-    J -- Não --> L[Configurar database/conect.php]
-    L --> M[Validar conexão, tabelas e aplicação]
-    M --> N[Registrar resultado e proteger credenciais]
-    N --> O([Fim])
+```bash
+psql -U campeonato -h localhost -d campeonato -c "\dt"
 ```
 
-## 7. Dependências e pré-requisitos
+As tabelas `usuarios`, `times`, `jogadores`, `jogos` e `jogo_gols` devem aparecer, já com os dados que estavam no dump. Não é preciso criar nenhuma tabela manualmente.
 
-| Item | Requisito |
-|---|---|
-| Sistema operacional | Linux com `apt` para os comandos deste guia |
-| PHP | PHP CLI e módulo PHP para PostgreSQL; a versão mínima ainda precisa ser confirmada |
-| Extensão PHP | `pdo_pgsql` |
-| Servidor web | Apache2 nos exemplos; outra configuração exige ajustar a implantação |
-| Banco de dados | PostgreSQL |
-| Cliente do banco | `psql` |
-| Git | Para clonar o repositório |
-| Host do banco informado | `192.168.10.18` (endereço de rede privada) |
-| Banco e papel informados | `campeonato` |
-| Porta | `5432` por padrão; confirmar se o ambiente usa outra |
-| Arquivo de estrutura | `database/schema.sql` |
+> **Sem dump?** Para começar com o banco vazio, use `psql -U campeonato -h localhost -d campeonato -f database/schema.sql` no lugar do dump.
 
-## 8. Configuração
+### 8.5 Configurar a conexão
 
-### 8.1 Conexão da aplicação
+```bash
+cd /var/www/html/Projeto-integrador
+sudo nano database/conect.php
+```
 
-A conexão é definida em [`database/conect.php`](database/conect.php). O arquivo atualmente usa os campos host, banco, usuário e senha diretamente no código. Configure-os para o ambiente local/de implantação; mantenha credenciais reais fora do Git.
-
-Exemplo apenas ilustrativo, sem senha real:
+Ajuste os campos para a máquina atual (banco local):
 
 ```php
-<?php
-$host = '192.168.10.18';
+$host = 'localhost';
 $dbname = 'campeonato';
 $user = 'campeonato';
-$pass = '<senha-configurada-localmente>';
+$pass = 'campeonato';
 ```
 
-O projeto ainda não lê credenciais de variáveis de ambiente. Para produção, recomenda-se adaptar a conexão para buscar segredos de configuração não versionada e retornar erros sem expor detalhes internos ao visitante.
+Salve no `nano` com `Ctrl+O`, `Enter`, e saia com `Ctrl+X`.
 
-### 8.2 Executar localmente para desenvolvimento
+### 8.6 Configurar o Nginx
 
-Com PHP e a extensão `pdo_pgsql` instalados, na raiz do projeto:
+Crie o arquivo do site:
+
+```bash
+sudo nano /etc/nginx/sites-available/campeonato
+```
+
+```nginx
+server {
+    listen 80 default_server;
+    server_name _;
+
+    root /var/www/html;
+    index index.php index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include snippets/fastcgi-php.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;   # ajuste para a sua versão
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
+```
+
+Descubra o nome correto do socket do PHP-FPM e ajuste a linha `fastcgi_pass`:
+
+```bash
+ls /run/php/
+```
+
+Ative o site, valide e recarregue:
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/campeonato /etc/nginx/sites-enabled/campeonato
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+`nginx -t` deve responder `syntax is ok` e `test is successful`.
+
+### 8.7 Permissões
+
+```bash
+sudo chown -R www-data:www-data /var/www/html/Projeto-integrador
+```
+
+### 8.8 Validar a aplicação
+
+Abra no navegador `http://<servidor>/Projeto-integrador/index.php` (na própria máquina, `http://localhost/Projeto-integrador/index.php`).
+
+1. A página inicial abre sem erro de conexão.
+2. Abra a classificação (`tabela.php`) e a artilharia (`artilharia.php`): os dados restaurados devem aparecer.
+3. Cadastre uma conta em `login/cadastrar.php` e entre com ela.
+4. Confira os dados direto no banco:
+
+```bash
+psql -U campeonato -h localhost -d campeonato -c "SELECT id, nome FROM times;"
+```
+
+Se algo falhar, consulte os logs:
+
+```bash
+sudo tail -n 30 /var/log/nginx/error.log
+```
+
+### 8.9 Alternativa rápida para desenvolvimento
+
+Com PHP e `pdo_pgsql` instalados, na raiz do projeto:
 
 ```bash
 php -S 127.0.0.1:8000
 ```
 
-Abra `http://127.0.0.1:8000/`. O servidor embutido do PHP serve para desenvolvimento/testes, não para publicação em produção. O host de banco configurado precisa estar acessível pela máquina em que o PHP está rodando.
+Abra `http://127.0.0.1:8000/`. O servidor embutido serve só para desenvolvimento e testes.
 
-### 8.3 Servidor Apache
+## 9. Fluxograma da restauração
 
-Se o repositório estiver em `/var/www/html/Projeto-integrador`, o endereço de exemplo será `http://<servidor>/Projeto-integrador/`. O projeto calcula a URL base a partir do caminho do script; a URL definitiva depende do VirtualHost e do diretório escolhidos.
+```mermaid
+flowchart TD
+    A([Início]) --> B[Instalar Nginx, PHP-FPM, pgsql e PostgreSQL]
+    B --> C[Clonar Projeto-integrador]
+    C --> D[Criar usuário e banco campeonato]
+    D --> E{Existe meu_backup.sql?}
+    E -- Sim --> F[psql -f meu_backup.sql]
+    E -- Não --> G[psql -f database/schema.sql]
+    F --> H{Há erros?}
+    G --> H
+    H -- Sim --> I[Corrigir e repetir em banco vazio]
+    I --> E
+    H -- Não --> J[Configurar database/conect.php]
+    J --> K[Configurar Nginx e permissões]
+    K --> L[Validar no navegador]
+    L --> M([Fim])
+```
 
-## 9. Validação pós-restauração
+## 10. Validação
 
-### 9.1 Banco
+### 10.1 Banco
 
-- [ ] O host do banco responde na rede privada.
-- [ ] Conexão: `psql -h 192.168.10.18 -U campeonato -d campeonato -W -c "SELECT 1;"`
-- [ ] As cinco tabelas aparecem:
-
-  ```bash
-  psql -h 192.168.10.18 -U campeonato -d campeonato -W -c "\dt"
-  ```
-
-- [ ] Colunas e chaves de cada tabela correspondem a `database/schema.sql`.
-- [ ] As tabelas começam vazias após uma criação nova; o script não inclui dados de exemplo.
-- [ ] Confira contagens:
+- [ ] Conexão: `psql -h localhost -U campeonato -d campeonato -W -c "SELECT 1;"`
+- [ ] As cinco tabelas aparecem em `\dt`.
+- [ ] Contagens após a restauração:
 
   ```sql
   SELECT 'usuarios' AS tabela, count(*) FROM usuarios
@@ -370,7 +537,9 @@ Se o repositório estiver em `/var/www/html/Projeto-integrador`, o endereço de 
   UNION ALL SELECT 'jogo_gols', count(*) FROM jogo_gols;
   ```
 
-- [ ] Confirme que não existem referências órfãs:
+  Os números devem ser iguais aos do banco de origem (ou zero, se o banco foi criado só com o esquema).
+
+- [ ] Sem referências órfãs:
 
   ```sql
   SELECT j.id FROM jogadores j LEFT JOIN times t ON t.id = j.time_id WHERE t.id IS NULL;
@@ -384,18 +553,19 @@ Se o repositório estiver em `/var/www/html/Projeto-integrador`, o endereço de 
     WHERE j.id IS NULL OR p.id IS NULL;
   ```
 
-### 9.2 Aplicação
+  As três consultas devem retornar zero linhas.
+
+### 10.2 Aplicação
 
 - [ ] A página inicial abre sem erro de conexão.
-- [ ] É possível cadastrar uma conta e entrar com ela.
-- [ ] O cadastro e as operações de times e jogadores funcionam.
-- [ ] O registro de partida persiste o placar e os autores dos gols.
-- [ ] A tabela de classificação reflete partidas cadastradas.
+- [ ] É possível cadastrar uma conta e entrar.
+- [ ] Cadastro e edição de times e jogadores funcionam.
+- [ ] O registro de partida grava o placar e os autores dos gols.
+- [ ] A classificação reflete as partidas cadastradas.
 - [ ] A artilharia exibe os gols contabilizados.
-- [ ] O logout encerra a sessão e páginas protegidas voltam a exigir autenticação.
-- [ ] Verifique o log de erros do PHP/Apache caso algo falhe (por exemplo, `/var/log/apache2/error.log`).
+- [ ] O logout encerra a sessão e as páginas protegidas voltam a exigir login.
 
-## 10. Arquivos relacionados
+## 11. Arquivos relacionados
 
 | Arquivo | Função |
 |---|---|
@@ -410,69 +580,11 @@ Se o repositório estiver em `/var/www/html/Projeto-integrador`, o endereço de 
 | [`login/`](login/) | Cadastro, login, logout e verificação de sessão |
 | [`style/style.css`](style/style.css) | Estilos da interface |
 
-## 11. Segurança e operação
+## 12. Proteções existentes
 
-### 11.1 Proteções existentes
-
-- Senhas de contas da aplicação são armazenadas com `password_hash()` e verificadas com `password_verify()`.
-- O login renova o identificador da sessão.
-- Consultas com valores recebidos do usuário usam parâmetros PDO em prepared statements.
-- A função `h()` escapa valores exibidos em HTML em diversos pontos da aplicação.
-- O registro de uma partida usa transação para gravar o resultado e os gols em conjunto.
-- As páginas protegidas verificam a existência de sessão.
-
-### 11.2 Recomendações
-
-- **Credenciais do banco:** não as armazene no README nem em commits. Remova credenciais reais do histórico do Git, mova a configuração para um mecanismo não versionado e troque qualquer segredo que já tenha sido publicado.
-- **Usuários e permissões:** use papel de banco com privilégios mínimos necessários; limite conexões ao host/sub-rede da aplicação.
-- **Rede:** não exponha PostgreSQL diretamente à internet. Restrinja firewall e `pg_hba.conf` a origens autorizadas.
-- **Backups:** o `schema.sql` não é backup dos dados. Faça backup periódico, armazene-o fora do diretório público, limite permissões e teste a restauração.
-- **Dados pessoais:** CPF, telefones e datas de nascimento exigem acesso restrito, armazenamento protegido e política de retenção adequada.
-- **Mensagens de erro:** em produção, não mostre erros detalhados de PDO/SQL ao público; registre-os em log protegido.
-- **Autorização:** o esquema não tem perfis; qualquer regra que diferencie administrador e usuário comum ainda precisa ser definida e implementada se for necessária.
-- **Integridade de gols:** a aplicação permite que gols atribuídos a jogadores sejam menores que o placar do time; o esquema também não impõe essa consistência.
-- **Sessões e formulários:** avalie cookies de sessão seguros/HTTP-only, HTTPS e proteção CSRF nas operações que alteram dados.
-
-### 11.3 Backup e restauração de dados (opcional)
-
-Para salvar os dados existentes em formato customizado do PostgreSQL:
-
-```bash
-pg_dump -h 192.168.10.18 -U campeonato -W -d campeonato -F c -f campeonato.backup
-```
-
-Restaure esse backup em um banco de destino criado previamente:
-
-```bash
-pg_restore -h 192.168.10.18 -U campeonato -W -d campeonato --no-owner campeonato.backup
-```
-
-Faça e teste backups em local seguro. Não coloque `campeonato.backup` no repositório: ele pode conter credenciais de usuários e dados pessoais.
-
-## 12. Rastreabilidade e informações pendentes
-
-### 12.1 Evidências no repositório
-
-| Informação | Fonte |
-|---|---|
-| Tabelas, colunas e FKs | [`database/schema.sql`](database/schema.sql) |
-| Conexão PostgreSQL via PDO | [`database/conect.php`](database/conect.php) |
-| Operações e cálculos | [`includes/functions.php`](includes/functions.php) |
-| Rotas e navegação | [`index.php`](index.php), [`tabela.php`](tabela.php), [`artilharia.php`](artilharia.php), [`includes/header.php`](includes/header.php) |
-| Login, cadastro e sessão | [`login/`](login/) e [`includes/functions.php`](includes/functions.php) |
-| Regras exibidas da competição | [`index.php`](index.php) |
-| Host, banco e usuário informados para configuração | Informações fornecidas pelo responsável pelo projeto; confirmar disponibilidade e acesso no servidor |
-
-### 12.2 Informações que faltam para fechar o procedimento de implantação
-
-O README já foi adaptado com o esquema e as informações disponíveis. Para documentar uma instalação reproduzível no seu servidor, ainda é necessário confirmar:
-
-1. Distribuição e versão do Linux (por exemplo, Ubuntu 24.04).
-2. Se `192.168.10.18` é o servidor do PostgreSQL, o servidor web, ou ambos; e se a porta do PostgreSQL é a padrão `5432`.
-3. Versão do PostgreSQL e do PHP instaladas.
-4. Servidor web escolhido (Apache ou Nginx), domínio/IP público ou URL final e diretório de implantação.
-5. Se o papel e o banco `campeonato` já existem e se o PHP consegue conectar ao banco a partir do servidor da aplicação.
-6. Se o banco precisa iniciar com times/jogadores/partidas de exemplo ou se deve permanecer vazio após executar o esquema.
-7. Se todos os usuários cadastrados terão os mesmos acessos ou se haverá perfis (o esquema atual não define papéis).
-8. Se existe um backup de dados a restaurar; atualmente o repositório contém apenas o esquema, não um dump com registros.
-
+- Senhas armazenadas com `password_hash()` e verificadas com `password_verify()`.
+- Identificador de sessão renovado no login.
+- Consultas com valores do usuário usam prepared statements.
+- A função `h()` escapa valores exibidos em HTML.
+- O registro de partida usa transação para gravar resultado e gols juntos.
+- Páginas protegidas verificam a existência de sessão.
