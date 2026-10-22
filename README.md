@@ -581,8 +581,6 @@ scp usuario@192.168.10.18:~/meu_backup.sql .
 
 ## 9. Restaurar o dump em outra máquina — passo a passo
 
-Substitua `<senha>` pela senha que você definir para o usuário `campeonato`.
-
 **Pré-requisitos:** Linux com `apt`, usuário com `sudo` e acesso à internet. Tenha o arquivo `meu_backup.sql` na máquina.
 
 ### 9.1 Instalar e iniciar os serviços
